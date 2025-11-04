@@ -1,0 +1,179 @@
+package main
+
+import (
+	"bufio"
+	"crypto/md5"
+	"encoding/binary"
+	"fmt"
+	"math/rand"
+	"os"
+	"strconv"
+	"strings"
+	"time"
+)
+
+/*
+Problem Statement: Implement Consistent Hashing
+  - Take user object as input
+  - Assign server to a user data - map of users with keys as servers
+    . random
+    . hashing
+    . consistent hashing
+  - Re-shuffle data if new server is added or deleted
+*/
+
+type User struct {
+	id    int
+	name  string
+	phone string
+}
+
+var servers = make(map[int][]User)
+var serverRange = make(map[int][]int)
+
+const ringSize = 100
+
+func listServerData() {
+	for server, users := range servers {
+		fmt.Printf("\nServer %d: \n", server)
+		for _, user := range users {
+			fmt.Printf("- uid: %d, name: %s, phone: %s\n", user.id, user.name, user.phone)
+		}
+		if len(users) == 0 {
+			fmt.Println(" (no users yet)")
+		}
+	}
+}
+
+// Get server count randomly
+// Output will be unpredictable/indeterministic
+func getServerByRandomNumber(serverCount int) (randomServer int) {
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+	return r.Intn(serverCount)
+}
+
+// Get server by only hashing
+func getServerByHashing(id int, serverCount int) (randomServer int) {
+	idStr := strconv.Itoa(id)
+	hash := md5.Sum([]byte(idStr))
+	numHash := binary.BigEndian.Uint64(hash[:8])
+	return int(numHash % uint64(serverCount))
+}
+
+// Get server by consistent hashing
+func getServerByConsistentHashing(id int, serverCount int) (randomServer int) {
+	serverRange[0] = []int{0, 5, 10, 15, 20}
+	serverRange[1] = []int{25, 30, 35, 40}
+	serverRange[2] = []int{45, 50, 55, 60}
+	serverRange[3] = []int{65, 70, 75, 80, 85, 90, 95, 100}
+
+	idStr := strconv.Itoa(id)
+	hash := md5.Sum([]byte(idStr))
+	numHash := binary.BigEndian.Uint64(hash[:8])
+	ringNumber := int(numHash % 100)
+
+	for key, val := range serverRange {
+		for _, v := range val {
+			fmt.Println(ringNumber)
+			if v > ringNumber {
+				return key
+			}
+		}
+	}
+	return 0
+}
+
+// Re-shuffling the server
+func reshufflingServers(method string, serverCount int) {
+	switch method {
+	case "hashing":
+		// TODO
+		// start := time.Now()
+		// getServerByHashing(id int, serverCount int)
+		// fmt.Println(time.Since(start).Nanoseconds())
+	case "consistent_hashing":
+		// TODO
+		// start := time.Now()
+		// getServerByConsistentHashing(id int, serverCount int)
+		// fmt.Println(time.Since(start).Nanoseconds())
+	default:
+		// TODO
+	}
+}
+
+// Load users from file
+func readUsersFromFile(filename string) ([]User, error) {
+	file, err := os.Open(filename)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	var users []User
+	scanner := bufio.NewScanner(file)
+
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" {
+			continue // skip blank lines
+		}
+
+		parts := strings.Fields(line)
+		if len(parts) < 2 {
+			fmt.Println("Skipping invalid line:", line)
+			continue
+		}
+
+		name := parts[0]
+		phone := parts[1]
+
+		users = append(users, User{name: name, phone: phone})
+	}
+
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+
+	return users, nil
+}
+
+func main() {
+	var uid = 0
+	var choice int8
+
+	for i := range 4 {
+		servers[i] = []User{}
+		// fmt.Println(servers[i])
+	}
+
+outer: // label the loop, to use with break
+	for {
+		fmt.Print("Choice of operation:")
+		fmt.Println(" 1 = Add User, 2 = Retrieve User, 3 = Add New Server, 9 = Exit App")
+		fmt.Scanf("%d", &choice)
+		switch choice {
+		case 1:
+			users, err := readUsersFromFile("users.txt")
+			if err != nil {
+				fmt.Println("Error: ", err)
+				break outer
+			}
+
+			for _, u := range users {
+				uid += 1
+
+				// serverId := getServerByRandomNumber(len(servers))
+
+				// serverId := getServerByHashing(uid, len(servers))
+
+				serverId := getServerByConsistentHashing(uid, len(servers))
+
+				servers[serverId] = append(servers[serverId], User{id: uid, name: u.name, phone: u.phone})
+			}
+		case 2:
+			listServerData()
+		default:
+			break outer
+		}
+	}
+}
