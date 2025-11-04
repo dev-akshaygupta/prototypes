@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -72,9 +73,15 @@ func getServerByConsistentHashing(id int, serverCount int) (randomServer int) {
 	numHash := binary.BigEndian.Uint64(hash[:8])
 	ringNumber := int(numHash % 100)
 
-	for key, val := range serverRange {
+	keys := make([]int, 0, len(serverRange))
+	for k := range serverRange {
+		keys = append(keys, k)
+	}
+	sort.Ints(keys)
+
+	for _, key := range keys {
+		val := serverRange[key]
 		for _, v := range val {
-			fmt.Println(ringNumber)
 			if v > ringNumber {
 				return key
 			}
@@ -141,6 +148,7 @@ func main() {
 	var uid = 0
 	var choice int8
 
+	// Initialize few servers
 	for i := range 4 {
 		servers[i] = []User{}
 		// fmt.Println(servers[i])
