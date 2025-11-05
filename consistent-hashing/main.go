@@ -140,7 +140,7 @@ func reshufflingServers(method string, addServersCount int) {
 		for _, users := range servers {
 			for _, user := range users {
 				if !visitedIds[strconv.Itoa(user.id)] {
-					serverId, hash := getServerByConsistentHashing(user.id, newServerCount)
+					serverId, hash := getServerByConsistentHashing(user.id)
 					tempServerMap[serverId] = append(tempServerMap[serverId], User{id: user.id, name: user.name, phone: user.phone, hash: hash})
 					visitedIds[strconv.Itoa(user.id)] = true
 				}
