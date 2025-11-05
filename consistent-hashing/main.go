@@ -32,6 +32,12 @@ type User struct {
 	hash  uint64
 }
 
+var (
+	hash     uint64
+	serverId int
+	method   string
+)
+
 var servers = make(map[int][]User)
 var serverRange = map[int][]int{
 	0: {0, 5, 10, 15, 20},
@@ -42,8 +48,6 @@ var serverRange = map[int][]int{
 var visitedIds = make(map[string]bool)
 
 const ringSize = 100
-
-var method string
 
 func listServerData() {
 	for server, users := range servers {
@@ -111,6 +115,16 @@ func reshufflingServers(method string, addServersCount int) {
 	}
 
 	switch method {
+	case "random":
+		for _, users := range servers {
+			for _, user := range users {
+				if !visitedIds[strconv.Itoa(user.id)] {
+					serverId := getServerByRandomNumber(newServerCount)
+					tempServerMap[serverId] = append(tempServerMap[serverId], User{id: user.id, name: user.name, phone: user.phone, hash: 0})
+					visitedIds[strconv.Itoa(user.id)] = true
+				}
+			}
+		}
 	case "hashing":
 		start := time.Now()
 
@@ -125,8 +139,6 @@ func reshufflingServers(method string, addServersCount int) {
 		}
 
 		fmt.Println(time.Since(start).Nanoseconds())
-		servers = tempServerMap
-		clear(visitedIds)
 	case "consistent_hashing":
 		serverRange = map[int][]int{
 			0: {0, 5, 10, 15, 20},    // 0
@@ -147,11 +159,12 @@ func reshufflingServers(method string, addServersCount int) {
 			}
 		}
 		fmt.Println(time.Since(start).Nanoseconds())
-		servers = tempServerMap
-		clear(visitedIds)
 	default:
 		// TODO
 	}
+
+	servers = tempServerMap
+	clear(visitedIds)
 }
 
 // Load users from file
@@ -213,18 +226,17 @@ outer: // label the loop, to use with break
 				break outer
 			}
 
-			var hash uint64 = 0
 			for _, u := range users {
 				uid += 1
 
-				// serverId := getServerByRandomNumber(len(servers))
+				// serverId = getServerByRandomNumber(len(servers))
 				// method = "random"
 
-				serverId := getServerByHashing(uid, len(servers))
-				method = "hashing"
+				// serverId = getServerByHashing(uid, len(servers))
+				// method = "hashing"
 
-				// serverId, hash := getServerByConsistentHashing(uid)
-				// method = "consistent_hashing"
+				serverId, hash = getServerByConsistentHashing(uid)
+				method = "consistent_hashing"
 
 				servers[serverId] = append(servers[serverId], User{id: uid, name: u.name, phone: u.phone, hash: hash})
 			}
