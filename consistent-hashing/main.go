@@ -19,8 +19,10 @@ Problem Statement: Implement Consistent Hashing
   - Assign server to a user data - map of users with keys as servers
     . random
     . hashing
-    . consistent hashing
-  - Re-shuffle data, if new server is added or deleted
+    . consistent hashing (without virutal node - complex)
+  - Re-shuffle data, if new server is -
+  		- added
+		- deleted // TODO
 */
 
 type User struct {
@@ -110,6 +112,7 @@ func reshufflingServers(method string, addServersCount int) {
 	switch method {
 	case "hashing":
 		start := time.Now()
+
 		for _, users := range servers {
 			for _, user := range users {
 				if !visitedIds[strconv.Itoa(user.id)] {
@@ -120,15 +123,31 @@ func reshufflingServers(method string, addServersCount int) {
 			}
 		}
 
-		// getServerByHashing(id int, serverCount int)
 		fmt.Println(time.Since(start).Nanoseconds())
 		servers = tempServerMap
 		clear(visitedIds)
 	case "consistent_hashing":
-		// TODO
-		// start := time.Now()
-		// getServerByConsistentHashing(id int, serverCount int)
-		// fmt.Println(time.Since(start).Nanoseconds())
+		serverRange = map[int][]int{
+			0: {0, 5, 10, 15, 20},    // 0
+			1: {25, 30},              // 1
+			2: {35, 40},              // new
+			3: {45, 50, 55, 60},      // 2
+			4: {65, 70, 75},          // new
+			5: {80, 85, 90, 95, 100}, // 3
+		}
+		start := time.Now()
+		for _, users := range servers {
+			for _, user := range users {
+				if !visitedIds[strconv.Itoa(user.id)] {
+					serverId := getServerByConsistentHashing(user.id, newServerCount)
+					tempServerMap[serverId] = append(tempServerMap[serverId], User{id: user.id, name: user.name, phone: user.phone})
+					visitedIds[strconv.Itoa(user.id)] = true
+				}
+			}
+		}
+		fmt.Println(time.Since(start).Nanoseconds())
+		servers = tempServerMap
+		clear(visitedIds)
 	default:
 		// TODO
 	}
@@ -187,27 +206,25 @@ outer: // label the loop, to use with break
 		fmt.Scanf("%d", &choice)
 		switch choice {
 		case 1:
-			if len(servers) != 0 {
-				users, err := readUsersFromFile("users.txt")
-				if err != nil {
-					fmt.Println("Error: ", err)
-					break outer
-				}
+			users, err := readUsersFromFile("users.txt")
+			if err != nil {
+				fmt.Println("Error: ", err)
+				break outer
+			}
 
-				for _, u := range users {
-					uid += 1
+			for _, u := range users {
+				uid += 1
 
-					// serverId := getServerByRandomNumber(len(servers))
-					// method = "random"
+				// serverId := getServerByRandomNumber(len(servers))
+				// method = "random"
 
-					serverId := getServerByHashing(uid, len(servers))
-					method = "hashing"
+				// serverId := getServerByHashing(uid, len(servers))
+				// method = "hashing"
 
-					// serverId := getServerByConsistentHashing(uid, len(servers))
-					// method = "consistent_hashing"
+				serverId := getServerByConsistentHashing(uid, len(servers))
+				method = "consistent_hashing"
 
-					servers[serverId] = append(servers[serverId], User{id: uid, name: u.name, phone: u.phone})
-				}
+				servers[serverId] = append(servers[serverId], User{id: uid, name: u.name, phone: u.phone})
 			}
 		case 2:
 			listServerData()
