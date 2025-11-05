@@ -75,7 +75,7 @@ func getServerByHashing(id int, serverCount int) (randomServer int) {
 
 // Get server by consistent hashing
 // Output will be predictable/d eterministic
-func getServerByConsistentHashing(id int, serverCount int) (randomServer int, numHash uint64) {
+func getServerByConsistentHashing(id int) (randomServer int, numHash uint64) {
 	idStr := strconv.Itoa(id)
 	hash := md5.Sum([]byte(idStr))
 	numHash = binary.BigEndian.Uint64(hash[:8])
@@ -223,7 +223,7 @@ outer: // label the loop, to use with break
 				serverId := getServerByHashing(uid, len(servers))
 				method = "hashing"
 
-				// serverId, hash := getServerByConsistentHashing(uid, len(servers))
+				// serverId, hash := getServerByConsistentHashing(uid)
 				// method = "consistent_hashing"
 
 				servers[serverId] = append(servers[serverId], User{id: uid, name: u.name, phone: u.phone, hash: hash})
