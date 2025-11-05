@@ -39,11 +39,11 @@ var (
 )
 
 var servers = make(map[int][]User)
-var serverRange = map[int][]int{
-	0: {0, 5, 10, 15, 20},
-	1: {25, 30, 35, 40},
-	2: {45, 50, 55, 60},
-	3: {65, 70, 75, 80, 85, 90, 95, 100},
+var serverRange = map[int]int{
+	0: 5,
+	1: 30,
+	2: 55,
+	3: 70,
 }
 var visitedIds = make(map[string]bool)
 
@@ -86,20 +86,30 @@ func getServerByConsistentHashing(id int) (randomServer int, numHash uint64) {
 	ringNumber := int(numHash % 100)
 
 	keys := make([]int, 0, len(serverRange))
-	for k := range serverRange {
-		keys = append(keys, k)
+	for _, posn := range serverRange {
+		keys = append(keys, posn)
 	}
 	sort.Ints(keys)
 
-	for _, key := range keys {
-		val := serverRange[key]
-		for _, v := range val {
-			if v > ringNumber {
-				return key, uint64(ringNumber)
+	// Find the first server whose position > ringNumber
+	for _, pos := range keys {
+		for serverID, p := range serverRange {
+			if p == pos && p >= ringNumber {
+				return serverID, uint64(ringNumber)
 			}
 		}
 	}
-	return 0, 0
+	return getServerAtMinPosition(), uint64(ringNumber)
+}
+
+func getServerAtMinPosition() int {
+	minServer, minPos := -1, 999
+	for serverID, pos := range serverRange {
+		if pos < minPos {
+			minServer, minPos = serverID, pos
+		}
+	}
+	return minServer
 }
 
 // Re-shuffling the server
@@ -140,13 +150,13 @@ func reshufflingServers(method string, addServersCount int) {
 
 		fmt.Println(time.Since(start).Nanoseconds())
 	case "consistent_hashing":
-		serverRange = map[int][]int{
-			0: {0, 5, 10, 15, 20},    // 0
-			1: {25, 30},              // 1
-			2: {35, 40},              // new
-			3: {45, 50, 55, 60},      // 2
-			4: {65, 70, 75},          // new
-			5: {80, 85, 90, 95, 100}, // 3
+		serverRange = map[int]int{
+			0: 5,  // 0
+			1: 30, // 1
+			2: 35, // new
+			3: 55, // 2
+			4: 70, // 3
+			5: 85, // new
 		}
 		start := time.Now()
 		for _, users := range servers {
