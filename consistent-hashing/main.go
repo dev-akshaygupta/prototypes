@@ -20,7 +20,7 @@ Problem Statement: Implement Consistent Hashing
     . random
     . hashing
     . consistent hashing
-  - Re-shuffle data if new server is added or deleted
+  - Re-shuffle data, if new server is added or deleted
 */
 
 type User struct {
@@ -30,9 +30,17 @@ type User struct {
 }
 
 var servers = make(map[int][]User)
-var serverRange = make(map[int][]int)
+var serverRange = map[int][]int{
+	0: {0, 5, 10, 15, 20},
+	1: {25, 30, 35, 40},
+	2: {45, 50, 55, 60},
+	3: {65, 70, 75, 80, 85, 90, 95, 100},
+}
+var visitedIds = make(map[string]bool)
 
 const ringSize = 100
+
+var method string
 
 func listServerData() {
 	for server, users := range servers {
@@ -54,6 +62,7 @@ func getServerByRandomNumber(serverCount int) (randomServer int) {
 }
 
 // Get server by only hashing
+// Output will be predictable/deterministic
 func getServerByHashing(id int, serverCount int) (randomServer int) {
 	idStr := strconv.Itoa(id)
 	hash := md5.Sum([]byte(idStr))
@@ -62,12 +71,8 @@ func getServerByHashing(id int, serverCount int) (randomServer int) {
 }
 
 // Get server by consistent hashing
+// Output will be predictable/d eterministic
 func getServerByConsistentHashing(id int, serverCount int) (randomServer int) {
-	serverRange[0] = []int{0, 5, 10, 15, 20}
-	serverRange[1] = []int{25, 30, 35, 40}
-	serverRange[2] = []int{45, 50, 55, 60}
-	serverRange[3] = []int{65, 70, 75, 80, 85, 90, 95, 100}
-
 	idStr := strconv.Itoa(id)
 	hash := md5.Sum([]byte(idStr))
 	numHash := binary.BigEndian.Uint64(hash[:8])
@@ -91,13 +96,34 @@ func getServerByConsistentHashing(id int, serverCount int) (randomServer int) {
 }
 
 // Re-shuffling the server
-func reshufflingServers(method string, serverCount int) {
+func reshufflingServers(method string, addServersCount int) {
+	newServerCount := len(servers) + addServersCount
+	tempServerMap := make(map[int][]User)
+
+	// create map to later use for visited IDs
+	for _, users := range servers {
+		for _, user := range users {
+			visitedIds[strconv.Itoa(user.id)] = false
+		}
+	}
+
 	switch method {
 	case "hashing":
-		// TODO
-		// start := time.Now()
+		start := time.Now()
+		for _, users := range servers {
+			for _, user := range users {
+				if !visitedIds[strconv.Itoa(user.id)] {
+					serverId := getServerByHashing(user.id, newServerCount)
+					tempServerMap[serverId] = append(tempServerMap[serverId], User{id: user.id, name: user.name, phone: user.phone})
+					visitedIds[strconv.Itoa(user.id)] = true
+				}
+			}
+		}
+
 		// getServerByHashing(id int, serverCount int)
-		// fmt.Println(time.Since(start).Nanoseconds())
+		fmt.Println(time.Since(start).Nanoseconds())
+		servers = tempServerMap
+		clear(visitedIds)
 	case "consistent_hashing":
 		// TODO
 		// start := time.Now()
@@ -161,25 +187,32 @@ outer: // label the loop, to use with break
 		fmt.Scanf("%d", &choice)
 		switch choice {
 		case 1:
-			users, err := readUsersFromFile("users.txt")
-			if err != nil {
-				fmt.Println("Error: ", err)
-				break outer
-			}
+			if len(servers) != 0 {
+				users, err := readUsersFromFile("users.txt")
+				if err != nil {
+					fmt.Println("Error: ", err)
+					break outer
+				}
 
-			for _, u := range users {
-				uid += 1
+				for _, u := range users {
+					uid += 1
 
-				// serverId := getServerByRandomNumber(len(servers))
+					// serverId := getServerByRandomNumber(len(servers))
+					// method = "random"
 
-				// serverId := getServerByHashing(uid, len(servers))
+					serverId := getServerByHashing(uid, len(servers))
+					method = "hashing"
 
-				serverId := getServerByConsistentHashing(uid, len(servers))
+					// serverId := getServerByConsistentHashing(uid, len(servers))
+					// method = "consistent_hashing"
 
-				servers[serverId] = append(servers[serverId], User{id: uid, name: u.name, phone: u.phone})
+					servers[serverId] = append(servers[serverId], User{id: uid, name: u.name, phone: u.phone})
+				}
 			}
 		case 2:
 			listServerData()
+		case 3:
+			reshufflingServers(method, 2)
 		default:
 			break outer
 		}
