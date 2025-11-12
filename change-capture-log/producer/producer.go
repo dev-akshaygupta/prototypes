@@ -1,6 +1,7 @@
 package main
 
 import (
+	"changecapturelog/handlers"
 	"log"
 	"net/http"
 
@@ -8,8 +9,8 @@ import (
 )
 
 func main() {
-	http.HandleFunc("/addUser", handler.addUserHandler)
-	http.HandleFunc("/updateUser", updateUserHandler)
+	http.HandleFunc("/addUser", handlers.AddUserHandler)
+	http.HandleFunc("/updateUser", handlers.UpdateUserHandler)
 	log.Fatalln(http.ListenAndServe(":3000", nil))
 }
 

@@ -1,9 +1,14 @@
 package handlers
 
-import "net/http"
+import (
+	main "changecapturelog"
+	"net/http"
+)
 
-func addUserHandler(w http.ResponseWriter, r *http.Request) {
+func AddUserHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Invalid Request method", http.StatusMethodNotAllowed)
 	}
+
+	user := new(main.Users)
 }
