@@ -2,85 +2,83 @@ package main
 
 import (
 	"fmt"
+	"math/rand"
 	"sync"
 	"time"
 )
 
+func init() {
+	rand.New(rand.NewSource(time.Now().UnixNano()))
+}
+
+// Simplest Implementation
+type TokenBucket struct {
+	capacity   int        // max tokens
+	tokens     int        // current tokens
+	refillRate int        // tokens added per second
+	lastRefill time.Time  // last time token was refilled
+	mu         sync.Mutex // protect bucket state
+}
+
 var wg sync.WaitGroup
-var mu sync.Mutex
 
-// 5 tokens = at most 5 concurrent requests
-var tokens = map[string]bool{
-	"token1": false,
-	"token2": false,
-	"token3": false,
-	"token4": false,
-	"token5": false,
+func NewTokenBucket(capacity, refillRate int) *TokenBucket {
+	return &TokenBucket{
+		capacity:   capacity,
+		tokens:     capacity, // starting full
+		refillRate: refillRate,
+		lastRefill: time.Now(),
+	}
 }
 
-var processed = 0
+// refill tokens based on elapsed time
+func (tb *TokenBucket) refill() {
+	now := time.Now()
+	elapsedTime := now.Sub(tb.lastRefill).Seconds()
 
-func APIServer(token string, reqNum int) {
-	fmt.Printf("Request %d being processed with token: %s\n", reqNum, token)
-	processed += 1
-
-	// To mimic some proceess is happening
-	time.Sleep(3 * time.Millisecond)
+	// how many tokens to add
+	newTokens := int(elapsedTime * float64(tb.refillRate))
+	if newTokens > 0 {
+		tb.tokens += newTokens
+		if tb.tokens > tb.capacity {
+			tb.tokens = tb.capacity
+		}
+		// fmt.Printf("Refilling tokens %d\n", elapsedTime)
+		tb.lastRefill = now
+	}
 }
 
-// In case of rate limiter tokens map is a shared resource
-// APIServer is a request processor
-func TokenRateLimiter(reqNum int) {
+// try to consume 1 token, Return true if allowed, else false.
+func (tb *TokenBucket) Allow() bool {
+	tb.mu.Lock()
+	defer tb.mu.Unlock()
 
-	// Acquire a token
-	mu.Lock()
-	var token string
-	for t := range tokens {
-		if !tokens[t] {
-			token = t
-			tokens[t] = true
-			break
-		}
+	// referesh bucket based on elapsed time
+	tb.refill()
+
+	if tb.tokens >= 1 {
+		tb.tokens -= 1
+		return true
 	}
-
-	// If no tokens are available: wait until one becomes free
-	for token == "" {
-		mu.Unlock() // release the lock for now
-
-		fmt.Printf("Request %d is waiting for token...!\n", reqNum)
-		time.Sleep(1 * time.Millisecond) // wait + backoff
-
-		// Acquire a token
-		mu.Lock()
-		for t := range tokens {
-			if !tokens[t] {
-				token = t
-				tokens[t] = true
-				break
-			}
-		}
-	}
-	mu.Unlock()
-
-	APIServer(token, reqNum)
-
-	mu.Lock()
-	tokens[token] = false
-	mu.Unlock()
-	// wg.Done()
+	return false
 }
 
 func main() {
-	numReq := 15
+	bucket := NewTokenBucket(5, 3) // Max Token = 5 and refill every 1 sec
 
+	numReq := 30
+	min := 50
+	max := 200
+	sleepMs := rand.Intn(max-min+1) + min
 	for i := range numReq {
+		time.Sleep(time.Duration(sleepMs) * time.Millisecond)
 		wg.Go(func() {
-			TokenRateLimiter(i)
+			if bucket.Allow() {
+				fmt.Printf("Serving Request #%d at : %s\n", i, time.Now().Format("15:04:05.000"))
+			} else {
+				fmt.Printf("No tokens are available. Rejected Request #%d at : %s\n", i, time.Now().Format("15:04:05.000"))
+			}
 		})
-		// wg.Add(1)
-		// go RateLimiter(i)
 	}
 	wg.Wait()
-
-	defer fmt.Printf("\nTotal number of requests proceessed: %d\n", processed)
 }
